@@ -106,7 +106,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 /** Network: sends ONE public address to an Esplora-compatible API. */
 export async function fetchAddressStats(address, api = DEFAULT_API, fetchImpl = fetch) {
   for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await fetchImpl(`${api}/address/${address}`)
+    let res
+    try {
+      res = await fetchImpl(`${api}/address/${address}`)
+    } catch (e) {
+      const err = new Error(`could not reach ${api} (${e.message})`)
+      err.network = true
+      throw err
+    }
     if (res.status === 429) { await sleep(1500 * (attempt + 1)); continue }
     if (!res.ok) throw new Error(`${api} returned HTTP ${res.status} for ${address}`)
     const j = await res.json()

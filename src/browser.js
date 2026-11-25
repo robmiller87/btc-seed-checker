@@ -114,7 +114,14 @@ $('btnScan').onclick = async () => {
     progress.after(t)
     if (!any) line('No history on any standard path. If you expected funds: was there a BIP39 passphrase? Or the seed may be Electrum-format.', 'muted')
   } catch (e) {
-    line(`Lookup failed: ${e.message}. Try the other server, or check your connection.`, 'bad')
+    line(`Lookup failed: ${e.message}.`, 'bad big')
+    if (e.network) {
+      line('Your browser blocked the request before it reached the explorer. Common causes:', 'muted')
+      line('• The page is open inside a preview (e.g. the Claude app file card) that has no network access. Open the downloaded index.html directly in Safari, Chrome or Firefox instead.', 'muted')
+      line('• A content blocker or privacy extension (Brave Shields, uBlock, Lockdown, etc.) is blocking mempool.space / blockstream.info.', 'muted')
+      line('• Safari: if it still fails, check Develop → Developer Settings → "Disable local file restrictions", or use Chrome or Firefox.', 'muted')
+      line('• Or use the terminal version, which never has this issue: npm run check -- --phrase-stdin', 'muted')
+    }
   } finally {
     setBusy(false)
   }
