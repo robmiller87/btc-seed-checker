@@ -1,0 +1,22 @@
+{
+  "name": "btc-seed-checker",
+  "version": "1.0.0",
+  "description": "Local-first Bitcoin seed phrase checker. Phrase never leaves your machine; only public addresses are looked up.",
+  "scripts": {
+    "check": "node check-btc.mjs",
+    "build": "node build.mjs",
+    "test": "node test.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@scure/base": "^2.4.0",
+    "@scure/bip32": "^2.4.0",
+    "@scure/bip39": "^2.4.0",
+    "@scure/btc-signer": "^2.4.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "type": "module",
+  "private": true
+}

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://mempool.space https://blockstream.info">
+<meta name="referrer" content="no-referrer">
+<title>BTC Seed Checker</title>
+<style>
+  :root { --bg:#f6f4ef; --card:#fff; --ink:#1d1d1b; --muted:#77736a; --line:#e3dfd6; --accent:#c76b12; --good:#2e7d4f; --bad:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#151513; --card:#1f1f1c; --ink:#ecebe6; --muted:#9a968c; --line:#33322e; --accent:#f0a24a; --good:#6fcf97; --bad:#ff8a80; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system, system-ui, sans-serif }
+  main { max-width:860px; margin:0 auto; padding:32px 20px 80px }
+  h1 { font-size:24px; margin:0 0 4px } h1 span { color:var(--accent) }
+  h3 { margin:0 0 4px; font-size:15px }
+  .lede { color:var(--muted); margin:0 0 20px }
+  .warn { border:1px solid var(--line); border-left:4px solid var(--accent); background:var(--card); padding:12px 14px; border-radius:8px; margin-bottom:20px; font-size:14px }
+  label { display:block; font-weight:600; margin:16px 0 6px }
+  label small { font-weight:400; color:var(--muted) }
+  textarea, input, select { width:100%; font:14px ui-monospace, Menlo, monospace; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink) }
+  textarea { min-height:84px; resize:vertical }
+  .hidden-text { -webkit-text-security:disc; text-security:disc }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+  .row > * { flex:1 }
+  .opts { display:grid; grid-template-columns:1fr 1fr 2fr; gap:10px }
+  button { font:600 14px system-ui; padding:11px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff }
+  button:disabled { opacity:.5; cursor:wait }
+  .small { flex:0 0 auto; padding:6px 12px; font-size:13px }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin:20px 0 6px }
+  #net { color:var(--muted); font-size:13px; margin-bottom:16px }
+  #out > div { margin:3px 0 }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; overflow-x:auto }
+  .mono { font:12.5px ui-monospace, Menlo, monospace; white-space:pre }
+  .wrap { white-space:normal; word-break:break-all; margin-top:6px }
+  .muted { color:var(--muted) } .good { color:var(--good) } .bad { color:var(--bad) }
+  .big { font-weight:700; font-size:16px }
+  .total { font-size:22px; font-weight:800; margin:12px 0 !important }
+  details summary { cursor:pointer; color:var(--muted); font-size:13px; margin:4px 0 8px }
+</style>
+</head>
+<body>
+<main>
+  <h1><span>₿</span> BTC Seed Checker</h1>
+  <p class="lede">Checks a BIP39 seed phrase across all four Bitcoin wallet types: Legacy <code>1…</code>, Nested SegWit <code>3…</code>, Native SegWit <code>bc1q…</code>, Taproot <code>bc1p…</code>.</p>
+
+  <div class="warn">
+    <b>Your phrase never leaves this page.</b> Keys are derived in this browser tab. The balance scan sends only derived <i>public</i> addresses to the block explorer below (enforced by this page's Content-Security-Policy). For a wallet holding real money, use the offline buttons first, ideally with Wi-Fi off. If the phrase has been sitting in old notes, move the funds to a fresh wallet.
+  </div>
+
+  <label for="phrase">Seed phrase <small>12–24 words, numbering is ignored</small></label>
+  <textarea id="phrase" class="hidden-text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="word1 word2 word3 …"></textarea>
+  <div class="row" style="margin-top:6px"><span></span><button id="toggle" class="small" type="button">Show</button><button id="clear" class="small" type="button">Clear all</button></div>
+
+  <label for="passphrase">BIP39 passphrase <small>optional "25th word", case-sensitive. Leave empty if you never set one</small></label>
+  <input id="passphrase" type="password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+  <label for="address">Address to match <small>optional, for "does this phrase own this address?"</small></label>
+  <input id="address" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="bc1q… / 3… / 1… / bc1p…">
+
+  <div class="opts">
+    <div><label for="gap">Gap limit</label><input id="gap" type="number" min="1" value="20"></div>
+    <div><label for="accounts">Accounts</label><input id="accounts" type="number" min="1" value="1"></div>
+    <div><label for="server">Explorer API</label><select id="server"></select></div>
+  </div>
+
+  <div class="actions">
+    <button id="btnOffline" type="button">Validate &amp; show addresses (offline)</button>
+    <button id="btnFind" type="button">Find address (offline)</button>
+    <button id="btnScan" class="primary" type="button">Scan balances &amp; history</button>
+  </div>
+  <div id="net">Network: idle</div>
+
+  <div id="out"></div>
+</main>
+<script>/*__BUNDLE__*/</script>
+</body>
+</html>
