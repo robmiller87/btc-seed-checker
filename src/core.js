@@ -103,29 +103,43 @@ export function findAddress(seed, target, { accounts = 1, limit = 1000 } = {}) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-/** Network: sends ONE public address to an Esplora-compatible API. */
-export async function fetchAddressStats(address, api = DEFAULT_API, fetchImpl = fetch) {
-  for (let attempt = 0; attempt < 6; attempt++) {
-    let res
+/**
+ * Network: sends ONE public address to an Esplora-compatible API.
+ * `apis` is a server or a list of servers. Dropped connections, 429 and 5xx are
+ * retried with backoff; after two failures in a row it switches to the next server
+ * and stays there (servers.current) while that one works.
+ */
+export async function fetchAddressStats(address, apis = DEFAULT_API, fetchImpl = fetch, servers = null, onRetry = () => {}) {
+  const st = servers || { list: Array.isArray(apis) ? apis : [apis], current: 0, retryBaseMs: 1000 }
+  const attempts = 4 * st.list.length
+  let lastError = ''
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const i = (st.current + Math.floor(attempt / 2)) % st.list.length
+    const api = st.list[i]
     try {
-      res = await fetchImpl(`${api}/address/${address}`)
+      const res = await fetchImpl(`${api}/address/${address}`)
+      if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw Object.assign(new Error(`${api} returned HTTP ${res.status} for ${address}`), { fatal: true })
+      const j = await res.json()
+      const c = j.chain_stats, m = j.mempool_stats
+      st.current = i
+      return {
+        txCount: c.tx_count + m.tx_count,
+        confirmedSats: c.funded_txo_sum - c.spent_txo_sum,
+        unconfirmedSats: m.funded_txo_sum - m.spent_txo_sum,
+        totalReceivedSats: c.funded_txo_sum + m.funded_txo_sum,
+      }
     } catch (e) {
-      const err = new Error(`could not reach ${api} (${e.message})`)
-      err.network = true
-      throw err
-    }
-    if (res.status === 429) { await sleep(1500 * (attempt + 1)); continue }
-    if (!res.ok) throw new Error(`${api} returned HTTP ${res.status} for ${address}`)
-    const j = await res.json()
-    const c = j.chain_stats, m = j.mempool_stats
-    return {
-      txCount: c.tx_count + m.tx_count,
-      confirmedSats: c.funded_txo_sum - c.spent_txo_sum,
-      unconfirmedSats: m.funded_txo_sum - m.spent_txo_sum,
-      totalReceivedSats: c.funded_txo_sum + m.funded_txo_sum,
+      if (e.fatal) throw e
+      const code = e.cause?.code ? ` ${e.cause.code}` : ''
+      lastError = `${api}: ${e.message}${code}`
+      onRetry({ api, attempt, error: lastError })
+      await sleep(Math.min(st.retryBaseMs * 2 ** Math.floor(attempt / 2), 8000))
     }
   }
-  throw new Error(`${api} kept rate-limiting (HTTP 429). Wait a minute and retry, or use another server.`)
+  const err = new Error(`could not reach ${st.list.join(' or ')} after ${attempts} tries (last: ${lastError})`)
+  err.network = true
+  throw err
 }
 
 /**
@@ -133,7 +147,9 @@ export async function fetchAddressStats(address, api = DEFAULT_API, fetchImpl = 
  * Stops a branch after `gap` consecutive never-used addresses.
  * onProgress(event) is called for UI updates.
  */
-export async function scan(seed, { gap = 20, accounts = 1, api = DEFAULT_API, batch = 4, delayMs = 250, onProgress = () => {}, fetchImpl = fetch, schemes = SCHEMES } = {}) {
+export async function scan(seed, { gap = 20, accounts = 1, api = DEFAULT_API, fallback = true, batch = 2, delayMs = 400, retryBaseMs = 1000, onProgress = () => {}, onRetry = () => {}, fetchImpl = fetch, schemes = SCHEMES } = {}) {
+  const list = [api, ...(fallback ? [DEFAULT_API, FALLBACK_API].filter((u) => u !== api) : [])]
+  const servers = { list, current: 0, retryBaseMs }
   const results = []
   for (const scheme of schemes) {
     for (let account = 0; account < accounts; account++) {
@@ -145,7 +161,7 @@ export async function scan(seed, { gap = 20, accounts = 1, api = DEFAULT_API, ba
         while (unusedRun < gap) {
           const idxs = Array.from({ length: batch }, (_, k) => index + k)
           const addrs = idxs.map((i) => scheme.address(branch.deriveChild(i).publicKey))
-          const stats = await Promise.all(addrs.map((a) => fetchAddressStats(a, api, fetchImpl)))
+          const stats = await Promise.all(addrs.map((a) => fetchAddressStats(a, list, fetchImpl, servers, onRetry)))
           for (let k = 0; k < idxs.length; k++) {
             entry.checked++
             const s = stats[k]
@@ -159,7 +175,7 @@ export async function scan(seed, { gap = 20, accounts = 1, api = DEFAULT_API, ba
             }
           }
           index += batch
-          onProgress({ scheme: scheme.label, path: `${path}/${chain}`, checked: entry.checked, found: entry.used.length })
+          onProgress({ scheme: scheme.label, path: `${path}/${chain}`, checked: entry.checked, found: entry.used.length, server: servers.list[servers.current] })
           if (delayMs) await sleep(delayMs)
         }
       }

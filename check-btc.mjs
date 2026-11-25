@@ -110,7 +110,8 @@ async function main() {
   console.log(`\nScanning via ${args.server} (public addresses only, gap limit ${args.gap})...`)
   const results = await scan(seed, {
     gap: args.gap, accounts: args.accounts, api: args.server, schemes,
-    onProgress: (p) => process.stderr.write(`\r  ${p.path.padEnd(18)} checked ${String(p.checked).padStart(4)}  used ${p.found}   `),
+    onProgress: (p) => process.stderr.write(`\r  ${p.path.padEnd(18)} checked ${String(p.checked).padStart(4)}  used ${p.found}  via ${new URL(p.server).host}      `),
+    onRetry: (r) => process.stderr.write(`\n  retrying (${r.error})\n`),
   })
   process.stderr.write('\n')
 

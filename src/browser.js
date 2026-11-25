@@ -95,7 +95,8 @@ $('btnScan').onclick = async () => {
   try {
     const results = await scan(seed, {
       gap, accounts, api,
-      onProgress: (p) => { progress.textContent = `Checking ${p.scheme} ${p.path} — ${p.checked} addresses, ${p.found} with history` },
+      onProgress: (p) => { progress.textContent = `Checking ${p.scheme} ${p.path} — ${p.checked} addresses, ${p.found} with history (via ${new URL(p.server).host})` },
+      onRetry: (r) => { progress.textContent = `Connection hiccup, retrying… (${r.error})` },
     })
     progress.textContent = `Scan complete (gap limit ${gap}, via ${api}).`
     let total = 0, unconf = 0, any = false
